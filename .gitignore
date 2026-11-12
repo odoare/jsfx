@@ -1,0 +1,15 @@
+# CMake build folders (the fxjsfx library and jsfx_run)
+/build/
+/build-*/
+
+# What jsfx/Makefile leaves behind
+/jsfx/*.o
+/jsfx/jsfx.so
+/jsfx/jsfx.dylib
+/jsfx/res.rc_mac_dlg
+/jsfx/res.rc_mac_menu
+
+# Editors
+.vscode/
+*.swp
+.DS_Store
