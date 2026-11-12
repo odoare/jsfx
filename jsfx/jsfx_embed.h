@@ -18,7 +18,8 @@ class SX_Instance;
 // As sx_createInstance(): loads <root>/Effects/<effect>, with <root>/Data as
 // the data folder. srate>0 is the sample rate @init sees first. On failure
 // returns NULL and, unlike sx_createInstance(), gives the reason (the
-// compile error with its line) in err.
+// compile error with its line) in err. A section that does not compile is
+// a failure (REAPER loads such a script and shows the message), except @gfx.
 SX_Instance *jsfx_embed_create(const char *root, const char *effect, int srate, char *err, int errsz);
 
 // The script has a @gfx section.

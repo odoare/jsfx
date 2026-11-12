@@ -105,6 +105,15 @@ target_compile_definitions(fxjsfx PRIVATE
     JSFX_EMBED
     NDEBUG)
 
+# WDL's FFT here works on doubles (WDL_FFT_REALSIZE=8). A host that carries
+# its own WDL FFT on floats under the same names (FxmeTools does) would
+# otherwise share one of the two with this library, silently: its names are
+# changed here.
+foreach(fn WDL_fft_init WDL_fft_complexmul WDL_fft_complexmul2 WDL_fft_complexmul3
+           WDL_fft WDL_real_fft WDL_fft_permute WDL_fft_permute_tab)
+    target_compile_definitions(fxjsfx PRIVATE ${fn}=fxjsfx_${fn})
+endforeach()
+
 if(MSVC)
     target_compile_definitions(fxjsfx PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE)
     target_compile_options(fxjsfx PRIVATE /W0)

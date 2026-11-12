@@ -304,7 +304,11 @@ SX_Instance *jsfx_embed_create(const char *root, const char *effect, int srate, 
 #endif
   sx->m_last_error[0]=0;
 
-  if (sx->LoadEffect(sx->m_name.Get(), SX_Instance::LOADEFFECT_RESETFLAG_CONFIGITEMS|SX_Instance::LOADEFFECT_RESETFLAG_SLIDERS, NULL))
+  // LoadEffect() succeeds when a section does not compile (REAPER then shows
+  // the message in the effect's window, and the section does nothing). Here
+  // that is a failure, except for @gfx, which the audio does not need.
+  if (sx->LoadEffect(sx->m_name.Get(), SX_Instance::LOADEFFECT_RESETFLAG_CONFIGITEMS|SX_Instance::LOADEFFECT_RESETFLAG_SLIDERS, NULL) &&
+      !sx->m_init_err && !sx->m_slider_err && !sx->m_onblock_err && !sx->m_sample_err && !sx->m_serialize_err)
   {
     sx->DoImageLoads(false);
     return sx;
