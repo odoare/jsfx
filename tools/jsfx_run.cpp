@@ -3,7 +3,12 @@
  * lists its sliders, runs a sine through it and, with --gfx, draws one frame
  * of its @gfx to a PPM file.
  *
- *   jsfx_run ROOT EFFECT [N=VALUE ...] [--seconds S] [--block B] [--gfx W H out.ppm]
+ *   jsfx_run ROOT EFFECT [N=VALUE ...] [--seconds S] [--block B] [--gfx W H out.ppm] [--mirror]
+ *
+ * --mirror draws @gfx in a second instance of the script, a display one
+ * (jsfx_embed_set_display: no audio code runs in it), after copying the
+ * variables and the memory the display touches from the audio instance, as
+ * FxmeNet's client does over the network.
  *
  * ROOT holds Effects/ and Data/ (REAPER's resource folder does), EFFECT is a
  * path under Effects/, N a slider's number as sx_getParmName() counts them
@@ -41,6 +46,7 @@ int main(int argc, char **argv)
   double seconds = 1.0;
   int block = 128, gfxw = 0, gfxh = 0;
   const char *gfxout = NULL;
+  bool mirror = false;
 
   char err[1024];
   SX_Instance *sx = jsfx_embed_create(argv[1], argv[2], srate, err, sizeof(err));
@@ -56,6 +62,7 @@ int main(int argc, char **argv)
     if (!strcmp(argv[i], "--seconds") && i+1 < argc) seconds = atof(argv[++i]);
     else if (!strcmp(argv[i], "--block") && i+1 < argc) block = atoi(argv[++i]);
     else if (!strcmp(argv[i], "--gfx") && i+3 < argc) { gfxw = atoi(argv[i+1]); gfxh = atoi(argv[i+2]); gfxout = argv[i+3]; i += 3; }
+    else if (!strcmp(argv[i], "--mirror")) mirror = true;
     else if (eq) sx_setParmVal(sx, atoi(argv[i]), atof(eq+1), 0);
     else { fprintf(stderr, "unknown argument %s\n", argv[i]); return 2; }
   }
@@ -103,8 +110,36 @@ int main(int argc, char **argv)
     int span = 0;
     bool flipped = false;
     int r = -1;
+    SX_Instance *view = sx;
+    if (mirror)
+    {
+      view = jsfx_embed_create(argv[1], argv[2], srate, err, sizeof(err));
+      if (!view) { fprintf(stderr, "display: %s\n", err); return 1; }
+      jsfx_embed_set_display(view);
+    }
     for (int frame = 0; frame < 3; frame++)   // scripts often lay out on the first frames
-      r = jsfx_embed_gfx_frame(sx, gfxw, gfxh, gfxw/2, gfxh/2, 256, &px, &span, &flipped);
+    {
+      if (mirror)
+      {
+        // variables by name, then every block the display has touched so far
+        struct Copy { SX_Instance *to; int n; } c = { view, 0 };
+        jsfx_embed_enum_vars(sx, [](void *ctx, const char *name, double *value) {
+          Copy *c = (Copy *) ctx;
+          if (double *d = jsfx_embed_var(c->to, name)) { *d = *value; c->n++; }
+        }, &c);
+        int blocks[256];
+        const int nb = jsfx_embed_mem_blocks_used(view, blocks, 256);
+        int copied = 0;
+        for (int b = 0; b < nb && b < 256; b++)
+        {
+          const double *from = jsfx_embed_mem_block(sx, blocks[b], false);
+          double *to = jsfx_embed_mem_block(view, blocks[b], true);
+          if (from && to) { memcpy(to, from, sizeof(double) * jsfx_embed_mem_block_size); copied++; }
+        }
+        printf("  frame %d: %d variables, %d of %d touched blocks copied\n", frame, c.n, copied, nb);
+      }
+      r = jsfx_embed_gfx_frame(view, gfxw, gfxh, gfxw/2, gfxh/2, 256, &px, &span, &flipped);
+    }
     if (r < 0 || !px)
     {
       fprintf(stderr, "no @gfx frame\n");

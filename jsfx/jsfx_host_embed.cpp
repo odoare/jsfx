@@ -375,3 +375,75 @@ int jsfx_embed_gfx_frame(SX_Instance *sx, int w, int h, int mouse_x, int mouse_y
   sx->m_in_gfx--;
   return dr;
 }
+
+
+/// The mirror (FxmeNet's doc/jsfx-plan.md, phase 3): the audio instance on
+/// the server and a display instance on the client, of the same script.
+
+void jsfx_embed_set_display(SX_Instance *sx)
+{
+  // @init, @slider, @block and @sample never run here: their results come
+  // from the other side. gfx_runCode() refuses to run while an init is
+  // pending, and gfx_frame would run one.
+  if (sx) sx->m_need_init = 0;
+}
+
+void jsfx_embed_gfx_request(SX_Instance *sx, int *w, int *h, int *hz)
+{
+  if (w) *w = sx ? sx->m_gfx_reqw : 0;
+  if (h) *h = sx ? sx->m_gfx_reqh : 0;
+  if (hz) *hz = sx ? sx->m_gfx_hz : 0;
+}
+
+void jsfx_embed_lock(SX_Instance *sx) { if (sx) sx->m_init_mutex.Enter(); }
+void jsfx_embed_unlock(SX_Instance *sx) { if (sx) sx->m_init_mutex.Leave(); }
+
+struct jsfx_embed_enum_ctx
+{
+  void (*fn)(void *, const char *, double *);
+  void *ctx;
+};
+
+static int jsfx_embed_enum_one(const char *name, EEL_F *val, void *c)
+{
+  jsfx_embed_enum_ctx *e = (jsfx_embed_enum_ctx *) c;
+  if (name && val) e->fn(e->ctx, name, val);
+  return 1;
+}
+
+void jsfx_embed_enum_vars(SX_Instance *sx, void (*fn)(void *ctx, const char *name, double *value), void *ctx)
+{
+  if (!sx || !sx->m_vm || !fn) return;
+  jsfx_embed_enum_ctx e = { fn, ctx };
+  NSEEL_VM_enumallvars(sx->m_vm, jsfx_embed_enum_one, &e);
+}
+
+double *jsfx_embed_var(SX_Instance *sx, const char *name)
+{
+  return sx && sx->m_vm && name ? NSEEL_VM_regvar(sx->m_vm, name) : NULL;
+}
+
+double *jsfx_embed_mem_block(SX_Instance *sx, int block, bool allocate)
+{
+  if (!sx || !sx->m_vm || block < 0 || block >= NSEEL_RAM_BLOCKS) return NULL;
+  int valid = 0;
+  const unsigned int offs = (unsigned int) block * NSEEL_RAM_ITEMSPERBLOCK;
+  EEL_F *p = allocate ? NSEEL_VM_getramptr(sx->m_vm, offs, &valid)
+                      : NSEEL_VM_getramptr_noalloc(sx->m_vm, offs, &valid);
+  return valid == NSEEL_RAM_ITEMSPERBLOCK ? p : NULL;
+}
+
+int jsfx_embed_mem_blocks_used(SX_Instance *sx, int *blocks, int max)
+{
+  if (!sx || !sx->m_vm) return 0;
+  compileContext *c = (compileContext *) sx->m_vm;
+  if (!c->ram_state) return 0;
+  int n = 0;
+  for (int b = 0; b < NSEEL_RAM_BLOCKS; b ++)
+    if (c->ram_state->blocks[b])
+    {
+      if (n < max && blocks) blocks[n] = b;
+      n++;
+    }
+  return n;
+}

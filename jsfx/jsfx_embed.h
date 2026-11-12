@@ -37,6 +37,39 @@ const char *jsfx_embed_description(SX_Instance *);
 int jsfx_embed_gfx_frame(SX_Instance *, int w, int h, int mouse_x, int mouse_y, int scale256,
                          const unsigned int **pixels, int *rowspan, bool *flipped);
 
+// The size and rate the script asks for in its "@gfx [w h]" line and
+// gfx_hz (0 when it does not say).
+void jsfx_embed_gfx_request(SX_Instance *, int *w, int *h, int *hz);
+
+// The mirror: an audio instance (where the audio sections run) and a
+// display instance of the same script (where @gfx runs), kept in step by the
+// host, which copies variables and memory from one to the other.
+
+// Makes an instance a display: @init, @slider, @block and @sample never run
+// in it (jsfx_embed_gfx_frame no longer starts with @init).
+void jsfx_embed_set_display(SX_Instance *);
+
+// Held while memory is read or written from another thread than the audio
+// one: the audio thread takes it to free or reset memory.
+void jsfx_embed_lock(SX_Instance *);
+void jsfx_embed_unlock(SX_Instance *);
+
+// Every variable of the script's VM, with where its value lives (valid as
+// long as the instance; the same script gives the same names on both sides).
+void jsfx_embed_enum_vars(SX_Instance *, void (*fn)(void *ctx, const char *name, double *value), void *ctx);
+
+// A variable by name, created if the VM does not have it.
+double *jsfx_embed_var(SX_Instance *, const char *name);
+
+// Memory is blocks of jsfx_embed_mem_block_size items. One block, or NULL
+// when it is not allocated (allocate false) or cannot be.
+enum { jsfx_embed_mem_block_size = 65536 };
+double *jsfx_embed_mem_block(SX_Instance *, int block, bool allocate);
+
+// The blocks allocated (the script touched them), up to max, in order;
+// returns how many there are.
+int jsfx_embed_mem_blocks_used(SX_Instance *, int *blocks, int max);
+
 // The entry points of jsfx_api.h, as functions.
 int sx_processSamples(SX_Instance *, double *buf, int cnt, int nch, int srate, double tempo, int tsnum, int tsdenom, double playstate, double playpos, double playpos_b, double lastwet, double wet, int flags);
 void sx_destroyInstance(SX_Instance *);

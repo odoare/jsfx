@@ -140,6 +140,11 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$" AND NOT APPLE)
         # The assembly has no stack note: without this the linker marks every
         # binary that holds it as needing an executable stack.
         target_link_options(fxjsfx INTERFACE -Wl,-z,noexecstack)
+        # Its symbols (nseel_asm_*) are global whatever -fvisibility says; in a
+        # plugin hosted by REAPER, whose jsfx.so has the same names, ours could
+        # bind to REAPER's. Nothing of this library is exported from a binary
+        # that links it.
+        target_link_options(fxjsfx INTERFACE -Wl,--exclude-libs,libfxjsfx.a)
     endif()
 elseif(APPLE)
     # Both slices of a universal build: x86-64 from the prebuilt object, arm64
