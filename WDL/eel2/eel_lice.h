@@ -2197,6 +2197,10 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getchar(void *opaque, INT_PTR np, EEL_F **plis
       if (*p == 65536.0 || *p == 65537.0)
       {
         int rv = 1;
+#ifdef EEL_LICE_EMBED_NOWINDOW
+        // drawn by a host that has no window for it, but feeds its keys
+        if (!ctx->hwnd_standalone) rv |= 2|4|8;
+#endif
         if (ctx->hwnd_standalone)
         {
           if (ctx->hwnd_standalone==GetFocus()) rv|=2;
@@ -2229,7 +2233,9 @@ static EEL_F NSEEL_CGEN_CALL _gfx_getchar(void *opaque, INT_PTR np, EEL_F **plis
       return x<n ? 1.0 : 0.0;
     }
 
+#ifndef EEL_LICE_EMBED_NOWINDOW
     if (!ctx->hwnd_standalone) return -1.0;
+#endif
 
     if (ctx->m_kb_queue_valid)
     {
