@@ -138,7 +138,7 @@ int main(int argc, char **argv)
         }
         printf("  frame %d: %d variables, %d of %d touched blocks copied\n", frame, c.n, copied, nb);
       }
-      r = jsfx_embed_gfx_frame(view, gfxw, gfxh, gfxw/2, gfxh/2, 256, &px, &span, &flipped);
+      r = jsfx_embed_gfx_frame(view, gfxw, gfxh, gfxw/2, gfxh/2, 0, 256, &px, &span, &flipped);
     }
     if (r < 0 || !px)
     {

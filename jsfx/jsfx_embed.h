@@ -30,12 +30,29 @@ const char *jsfx_embed_description(SX_Instance *);
 
 // Runs @gfx once, without a window, into the script's frame buffer of
 // w x h pixels (scale256: 256 for 100 %, 512 for a 200 % screen). Call it
-// from the thread that created the instance. Returns <0 if there is nothing
+// from the thread that created the instance. mouse_cap: the buttons and
+// modifiers as @gfx sees them (1 left, 2 right, 64 middle, 4 control, 8
+// shift, 16 alt, 32 windows key; on macOS 4 is command and 32 control),
+// or -1 to let the engine ask the system. Returns <0 if there is nothing
 // to draw with, 1 if the frame buffer changed, 0 if it did not. The pixels
 // (LICE: 0xAARRGGBB, rowspan in pixels, bottom-up if flipped) stay valid
 // until the next call.
-int jsfx_embed_gfx_frame(SX_Instance *, int w, int h, int mouse_x, int mouse_y, int scale256,
+int jsfx_embed_gfx_frame(SX_Instance *, int w, int h, int mouse_x, int mouse_y, int mouse_cap, int scale256,
                          const unsigned int **pixels, int *rowspan, bool *flipped);
+
+// Input for a display that has no window of its own (the host's).
+// The wheel adds to mouse_wheel and mouse_hwheel (120 a notch), which the
+// script clears when it has read them.
+void jsfx_embed_gfx_wheel(SX_Instance *, double vertical, double horizontal);
+// A key pressed (down 1) or released (down 0), as gfx_getchar() returns
+// them: a character ('a', 'A', 13 Enter, 27 Escape, 8 Backspace, 9 Tab,
+// 1..26 control + letter), a name in characters ('up', 'down', 'left',
+// 'rght', 'home', 'end', 'pgup', 'pgdn', 'ins', 'del', 'f1'...), or
+// ('u'<<24) + a Unicode character.
+void jsfx_embed_gfx_key(SX_Instance *, int code, int down);
+
+// Where a slider's value lives (its variable), by parameter index.
+double *jsfx_embed_slider_var(SX_Instance *, int parm);
 
 // The size and rate the script asks for in its "@gfx [w h]" line and
 // gfx_hz (0 when it does not say).

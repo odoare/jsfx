@@ -337,7 +337,7 @@ extern "C" void *SWELLAPI_GetFunc(const char *) { return NULL; }
 #endif
 
 
-int jsfx_embed_gfx_frame(SX_Instance *sx, int w, int h, int mouse_x, int mouse_y, int scale256,
+int jsfx_embed_gfx_frame(SX_Instance *sx, int w, int h, int mouse_x, int mouse_y, int mouse_cap, int scale256,
                          const unsigned int **pixels, int *rowspan, bool *flipped)
 {
   // as sx_inlineEditor()'s paint (sfxui.cpp), without REAPER's bitmap
@@ -361,6 +361,9 @@ int jsfx_embed_gfx_frame(SX_Instance *sx, int w, int h, int mouse_x, int mouse_y
   int dr = ps->setup_frame(NULL,r, mouse_x,mouse_y, scale256 > 0 ? scale256 : 256);
   if (dr>=0)
   {
+    // setup_frame() read the buttons and modifiers from the system, which a
+    // host without a window for it does not have: the host gives them.
+    if (mouse_cap >= 0 && ps->m_mouse_cap) *ps->m_mouse_cap = (EEL_F) mouse_cap;
     sx->gfx_runCode(0);
     if (ps->m_framebuffer_dirty) dr = 1;
     ps->m_framebuffer_dirty = 0;
@@ -446,4 +449,51 @@ int jsfx_embed_mem_blocks_used(SX_Instance *sx, int *blocks, int max)
       n++;
     }
   return n;
+}
+
+void jsfx_embed_gfx_wheel(SX_Instance *sx, double vertical, double horizontal)
+{
+  eel_lice_state *ps = sx ? sx->m_lice_state : NULL;
+  if (!ps) return;
+  if (ps->m_mouse_wheel) *ps->m_mouse_wheel += vertical;
+  if (ps->m_mouse_hwheel) *ps->m_mouse_hwheel += horizontal;
+}
+
+void jsfx_embed_gfx_key(SX_Instance *sx, int code, int down)
+{
+  // as eel_lice's window procedure: the queue gfx_getchar() reads, and the
+  // keys held, which gfx_getchar(key) tests
+  eel_lice_state *ps = sx ? sx->m_lice_state : NULL;
+  if (!ps || !code) return;
+
+  int bare = code;
+  if (bare >= ('u'<<24) && bare < ('v'<<24)) bare &= 0xffffff;
+  const int lower = bare >= 1 && bare < 27 ? bare+'a'-1 : bare >= 'A' && bare <= 'Z' ? bare+'a'-'A' : bare;
+
+  int *st = ps->hwnd_standalone_kb_state;
+  const int n = (int) (sizeof(ps->hwnd_standalone_kb_state) / sizeof(ps->hwnd_standalone_kb_state[0]));
+  int zp = n-1, x;
+  for (x = 0; x < n && st[x] != lower; x ++) if (x < zp && !st[x]) zp = x;
+  if (!down)
+  {
+    if (x < n) st[x] = 0;
+    return;
+  }
+  if (x == n) st[zp] = lower;
+
+  const int qsize = (int) (sizeof(ps->m_kb_queue)/sizeof(ps->m_kb_queue[0]));
+  if (ps->m_kb_queue_valid >= qsize) // full: the oldest goes
+  {
+    ps->m_kb_queue_valid--;
+    ps->m_kb_queue_pos++;
+  }
+  ps->m_kb_queue[(ps->m_kb_queue_pos + ps->m_kb_queue_valid++) & (qsize-1)] = code;
+}
+
+double *jsfx_embed_slider_var(SX_Instance *sx, int parm)
+{
+  if (!sx) return NULL;
+  const int a = sx->parmToIndex(parm);
+  effectSlider *slid = a >= 0 ? sx->m_sliders.Get(a) : NULL;
+  return slid ? slid->slider : NULL;
 }

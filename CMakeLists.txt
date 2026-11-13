@@ -103,6 +103,7 @@ set_target_properties(fxjsfx PROPERTIES
 target_compile_definitions(fxjsfx PRIVATE
     WDL_FFT_REALSIZE=8
     JSFX_EMBED
+    EEL_LICE_EMBED_NOWINDOW   # gfx_getchar without a window: the host feeds the keys
     NDEBUG)
 
 # WDL's FFT here works on doubles (WDL_FFT_REALSIZE=8). A host that carries
