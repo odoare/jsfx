@@ -2163,3 +2163,63 @@ void SX_Instance::LoadSerState(const char *buf, int buflen)
   }
 }
 
+#ifdef JSFX_EMBED // jsfx_host_embed.cpp, FxmeNet: eel_string_context_state is complete here only
+
+/// Strings, for the mirror. Keys: "u<n>" a numbered string (0..1023),
+/// "n<name>" a named one (#name), "a<n>" the nth anonymous one (#).
+
+void jsfx_embed_enum_strings(SX_Instance *sx, void (*fn)(void *ctx, const char *key, const char *value, int length), void *ctx)
+{
+  if (!sx || !sx->m_eel_string_state || !fn) return;
+  WDL_MutexLock lock(&sx->m_string_sermutex);
+  eel_string_context_state *s = sx->m_eel_string_state;
+  char key[512];
+  for (int i = 0; i < EEL_STRING_MAX_USER_STRINGS; i ++)
+    if (s->m_user_strings[i])
+    {
+      snprintf(key, sizeof(key), "u%d", i);
+      fn(ctx, key, s->m_user_strings[i]->Get(), s->m_user_strings[i]->GetLength());
+    }
+  for (int i = 0; i < s->m_unnamed_strings.GetSize(); i ++)
+    if (WDL_FastString *v = s->m_unnamed_strings.Get(i))
+    {
+      snprintf(key, sizeof(key), "a%d", i);
+      fn(ctx, key, v->Get(), v->GetLength());
+    }
+  for (int i = 0; ; i ++)
+  {
+    const char *name = NULL;
+    const int idx = s->m_named_strings_names.Enumerate(i, &name);
+    if (!name) break;
+    if (WDL_FastString *v = s->m_named_strings.Get(idx - EEL_STRING_NAMED_BASE))
+    {
+      snprintf(key, sizeof(key), "n%s", name);
+      fn(ctx, key, v->Get(), v->GetLength());
+    }
+  }
+}
+
+bool jsfx_embed_set_string(SX_Instance *sx, const char *key, const char *value, int length)
+{
+  if (!sx || !sx->m_eel_string_state || !key || !key[0]) return false;
+  WDL_MutexLock lock(&sx->m_string_sermutex);
+  eel_string_context_state *s = sx->m_eel_string_state;
+  WDL_FastString *v = NULL;
+  if (key[0] == 'u')
+  {
+    const int i = atoi(key + 1);
+    if (i < 0 || i >= EEL_STRING_MAX_USER_STRINGS) return false;
+    if (!s->m_user_strings[i]) s->m_user_strings[i] = new WDL_FastString;
+    v = s->m_user_strings[i];
+  }
+  else if (key[0] == 'a') v = s->m_unnamed_strings.Get(atoi(key + 1));
+  else if (key[0] == 'n')
+  {
+    const int idx = s->m_named_strings_names.Get(key + 1);
+    if (idx) v = s->m_named_strings.Get(idx - EEL_STRING_NAMED_BASE);
+  }
+  if (!v) return false;
+  v->SetRaw(value ? value : "", length > 0 ? length : 0);
+  return true;
+}
+#endif

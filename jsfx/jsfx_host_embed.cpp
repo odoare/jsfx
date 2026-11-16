@@ -497,3 +497,102 @@ double *jsfx_embed_slider_var(SX_Instance *sx, int parm)
   effectSlider *slid = a >= 0 ? sx->m_sliders.Get(a) : NULL;
   return slid ? slid->slider : NULL;
 }
+
+
+/// gmem[]: the memory shared by the scripts of a process, named
+/// (options:gmem=name: up to NSEEL_RAM_BLOCKS_GMEM_NAMED blocks) or not (one
+/// buffer of NSEEL_SHARED_GRAM_SIZE items), seen here as blocks.
+
+double *jsfx_embed_gmem_block(SX_Instance *sx, int block, bool allocate)
+{
+  if (!sx || !sx->m_vm || block < 0) return NULL;
+  compileContext *c = (compileContext *) sx->m_vm;
+  EEL_F ***named = (EEL_F ***) c->gram_blocks;
+  const unsigned int offs = (unsigned int) block * NSEEL_RAM_ITEMSPERBLOCK;
+  if (named)
+  {
+    if (block >= NSEEL_RAM_BLOCKS_GMEM_NAMED) return NULL;
+    if (!allocate) return *named ? (*named)[block] : NULL;
+    EEL_F *p = __NSEEL_RAMAllocGMEM(named, offs);
+    return p == &nseel_ramalloc_onfail ? NULL : p;
+  }
+  if (offs >= NSEEL_SHARED_GRAM_SIZE) return NULL;
+  if (!nseel_gmembuf_default)
+  {
+    if (!allocate) return NULL;
+    __NSEEL_RAMAllocGMEM(NULL, 0);
+  }
+  return nseel_gmembuf_default ? nseel_gmembuf_default + offs : NULL;
+}
+
+int jsfx_embed_gmem_blocks_used(SX_Instance *sx, int *blocks, int max)
+{
+  if (!sx || !sx->m_vm) return 0;
+  compileContext *c = (compileContext *) sx->m_vm;
+  EEL_F ***named = (EEL_F ***) c->gram_blocks;
+  int n = 0;
+  const int count = named ? NSEEL_RAM_BLOCKS_GMEM_NAMED : NSEEL_SHARED_GRAM_SIZE / NSEEL_RAM_ITEMSPERBLOCK;
+  for (int b = 0; b < count; b ++)
+    if (named ? (*named && (*named)[b]) : nseel_gmembuf_default != NULL)
+    {
+      if (n < max && blocks) blocks[n] = b;
+      n++;
+    }
+  return n;
+}
+
+bool jsfx_embed_slider_is_file(SX_Instance *sx, int parm)
+{
+  if (!sx) return false;
+  const int a = sx->parmToIndex(parm);
+  effectSlider *slid = a >= 0 ? sx->m_sliders.Get(a) : NULL;
+  return slid && slid->is_file_slider;
+}
+
+bool jsfx_embed_slider_shown(SX_Instance *sx, int parm)
+{
+  if (!sx) return true;
+  const int a = sx->parmToIndex(parm);
+  effectSlider *slid = a >= 0 ? sx->m_sliders.Get(a) : NULL;
+  return !slid || slid->show != 0;
+}
+
+/// Menus, cursors and dropped files for a display without a window.
+
+
+extern int (*eel_lice_embed_showmenu)(void *user_ctx, const char *menu, int x, int y);
+extern void (*eel_lice_embed_setcursor)(void *user_ctx, int resource_id, const char *name);
+
+// <map> cannot be used here (curses.h's macros): WDL's keyed array. Used
+// from the thread that runs @gfx only.
+static void jsfx_embed_free_host(jsfx_embed_gfx_host *h) { delete h; }
+static WDL_PtrKeyedArray<jsfx_embed_gfx_host *> s_gfx_hosts(jsfx_embed_free_host);
+
+static int jsfx_embed_showmenu_hook(void *user_ctx, const char *menu, int x, int y)
+{
+  jsfx_embed_gfx_host *h = s_gfx_hosts.Get((INT_PTR) user_ctx);
+  return h && h->showmenu ? h->showmenu(h->ctx, menu, x, y) : 0;
+}
+
+static void jsfx_embed_setcursor_hook(void *user_ctx, int resource_id, const char *name)
+{
+  jsfx_embed_gfx_host *h = s_gfx_hosts.Get((INT_PTR) user_ctx);
+  if (h && h->setcursor) h->setcursor(h->ctx, resource_id, name);
+}
+
+void jsfx_embed_set_gfx_host(SX_Instance *sx, const jsfx_embed_gfx_host *host)
+{
+  if (!sx) return;
+  eel_lice_embed_showmenu = jsfx_embed_showmenu_hook;
+  eel_lice_embed_setcursor = jsfx_embed_setcursor_hook;
+  s_gfx_hosts.Delete((INT_PTR) sx);
+  if (host) s_gfx_hosts.Insert((INT_PTR) sx, new jsfx_embed_gfx_host(*host));
+}
+
+void jsfx_embed_gfx_drop(SX_Instance *sx, const char *path)
+{
+  eel_lice_state *ps = sx ? sx->m_lice_state : NULL;
+  if (!ps) return;
+  if (!path) ps->m_ddrop_files.Empty(true, free);
+  else ps->m_ddrop_files.Add(strdup(path));
+}

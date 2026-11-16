@@ -51,6 +51,40 @@ void jsfx_embed_gfx_wheel(SX_Instance *, double vertical, double horizontal);
 // ('u'<<24) + a Unicode character.
 void jsfx_embed_gfx_key(SX_Instance *, int code, int down);
 
+// The script's strings that can change, with their text (the strings' lock
+// held while fn runs). Keys: "u<n>" a numbered string (0..1023), "n<name>"
+// a named one (#name), "a<n>" the nth anonymous one (#); the same script
+// gives the same keys on both sides.
+void jsfx_embed_enum_strings(SX_Instance *, void (*fn)(void *ctx, const char *key, const char *value, int length), void *ctx);
+// Sets one by its key; false when the script has no such string.
+bool jsfx_embed_set_string(SX_Instance *, const char *key, const char *value, int length);
+
+// A file slider (slider1:/folder:...): its values are the files of the
+// folder, which sx_getParmDisplay() names.
+bool jsfx_embed_slider_is_file(SX_Instance *, int parm);
+
+// A slider shown in the effect's slider window: false for one whose name
+// starts with '-' (or hidden by slider_show()); it is still a parameter.
+bool jsfx_embed_slider_shown(SX_Instance *, int parm);
+
+// What a display without a window needs from its host: gfx_showmenu()
+// (the menu string as the script wrote it, the position in the frame's
+// pixels; returns the item chosen, 1 for the first, 0 for none; called from
+// within @gfx, so it waits for the choice) and gfx_setcursor() (a Windows
+// cursor id, IDC_ARROW 32512 etc., and the script's cursor name if any).
+struct jsfx_embed_gfx_host
+{
+  void *ctx;
+  int (*showmenu)(void *ctx, const char *menu, int x, int y);
+  void (*setcursor)(void *ctx, int resource_id, const char *name);
+};
+// NULL removes it (before the instance is destroyed).
+void jsfx_embed_set_gfx_host(SX_Instance *, const jsfx_embed_gfx_host *);
+
+// Files dropped on the display, for gfx_getdropfile(): NULL clears the list,
+// then one call per file.
+void jsfx_embed_gfx_drop(SX_Instance *, const char *path);
+
 // Where a slider's value lives (its variable), by parameter index.
 double *jsfx_embed_slider_var(SX_Instance *, int parm);
 
@@ -82,6 +116,12 @@ double *jsfx_embed_var(SX_Instance *, const char *name);
 // when it is not allocated (allocate false) or cannot be.
 enum { jsfx_embed_mem_block_size = 65536 };
 double *jsfx_embed_mem_block(SX_Instance *, int block, bool allocate);
+
+// gmem[], the memory the scripts of a process share (named with
+// options:gmem=name, else one buffer for all), as blocks of the same size:
+// one block, or NULL; and the blocks allocated, up to max.
+double *jsfx_embed_gmem_block(SX_Instance *, int block, bool allocate);
+int jsfx_embed_gmem_blocks_used(SX_Instance *, int *blocks, int max);
 
 // The blocks allocated (the script touched them), up to max, in order;
 // returns how many there are.

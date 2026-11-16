@@ -320,7 +320,7 @@ int fileHandleRec::Open(const char *fn)
     m_mode=FILE_MODE_TEXT;
   }
 #ifdef JSFX_SUPPORT_WAV_DECODING
-  else if (l > 4 && !stricmp(fn+l-4,".wav"))
+  else if (strlen(fn) > 4 && !stricmp(fn+strlen(fn)-4,".wav"))
   {
     // parse RIFF
     unsigned char buf[8];

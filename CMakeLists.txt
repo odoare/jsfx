@@ -104,6 +104,7 @@ target_compile_definitions(fxjsfx PRIVATE
     WDL_FFT_REALSIZE=8
     JSFX_EMBED
     EEL_LICE_EMBED_NOWINDOW   # gfx_getchar without a window: the host feeds the keys
+    JSFX_SUPPORT_WAV_DECODING # file sliders and file_open() read .wav themselves (REAPER uses its media API)
     NDEBUG)
 
 # WDL's FFT here works on doubles (WDL_FFT_REALSIZE=8). A host that carries

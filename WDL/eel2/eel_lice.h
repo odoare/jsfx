@@ -1685,10 +1685,20 @@ static HMENU PopulateMenuFromStr(const char** str, int* startid)
   return hm;
 }
 
+#ifdef EEL_LICE_EMBED_NOWINDOW
+// a host without a window for the script shows its menus and cursors
+int (*eel_lice_embed_showmenu)(void *user_ctx, const char *menu, int x, int y);
+void (*eel_lice_embed_setcursor)(void *user_ctx, int resource_id, const char *name);
+#endif
+
 EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 {
   const char* p=EEL_STRING_GET_FOR_INDEX(parms[0][0], NULL);
   if (!p || !p[0]) return 0.0;
+#ifdef EEL_LICE_EMBED_NOWINDOW
+  if (!hwnd_standalone)
+    return eel_lice_embed_showmenu ? (EEL_F) eel_lice_embed_showmenu(m_user_ctx, p, (int)*m_gfx_x, (int)*m_gfx_y) : 0.0;
+#endif
 
   if ((GetTickCount()-m_last_menu_time) < (m_last_menu_cnt>=5 ? 3000 : 500))
   {
@@ -1742,6 +1752,14 @@ EEL_F eel_lice_state::gfx_showmenu(void* opaque, EEL_F** parms, int nparms)
 
 EEL_F eel_lice_state::gfx_setcursor(void* opaque, EEL_F** parms, int nparms)
 {
+#ifdef EEL_LICE_EMBED_NOWINDOW
+  if (!hwnd_standalone)
+  {
+    const char *name = nparms > 1 ? EEL_STRING_GET_FOR_INDEX(parms[1][0], NULL) : NULL;
+    if (eel_lice_embed_setcursor) eel_lice_embed_setcursor(m_user_ctx, (int)parms[0][0], name ? name : "");
+    return 0.0;
+  }
+#endif
   if (!hwnd_standalone) return 0.0;
 
   bool chg = false;
