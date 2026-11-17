@@ -164,7 +164,9 @@ if(APPLE)
     # Objective-C class names are global in a process: REAPER and other
     # plugins carry their own SWELL.
     target_compile_definitions(fxjsfx PRIVATE SWELL_APP_PREFIX=SWELL_FXJSFX_)
-    set_source_files_properties(${SWELL_SOURCES} PROPERTIES COMPILE_OPTIONS "-fno-objc-arc")
+    # Cockos initialises Win32 structs from int expressions; newer Apple clang
+    # makes that narrowing an error in Objective-C++.
+    set_source_files_properties(${SWELL_SOURCES} PROPERTIES COMPILE_OPTIONS "-fno-objc-arc;-Wno-c++11-narrowing")
     target_link_libraries(fxjsfx PUBLIC "-framework Cocoa" "-framework Carbon" "-framework Metal" "-framework MetalKit")
 elseif(WIN32)
     target_sources(fxjsfx PRIVATE ${WDL_DIR}/win32_utf8.c)
