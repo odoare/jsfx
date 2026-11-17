@@ -59,6 +59,11 @@ file(GLOB PNG_SOURCES ${WDL_DIR}/libpng/*.c)
 file(GLOB ZLIB_SOURCES ${WDL_DIR}/zlib/*.c)
 list(FILTER PNG_SOURCES  EXCLUDE REGEX "pngtest\\.c$")
 list(FILTER ZLIB_SOURCES EXCLUDE REGEX "(example|minigzip)\\.c$")
+# zlib declares read()/close() only with HAVE_UNISTD_H (its ./configure sets
+# it); GCC 14+ and clang refuse the undeclared calls in gzread.c/gzwrite.c.
+if(NOT WIN32)
+    set_source_files_properties(${ZLIB_SOURCES} PROPERTIES COMPILE_DEFINITIONS HAVE_UNISTD_H)
+endif()
 
 # ── SWELL: the Win32 calls the engine and LICE make, where there is no Win32 ──
 set(SWELL_SOURCES)
